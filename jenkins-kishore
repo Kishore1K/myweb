@@ -1,0 +1,52 @@
+pipeline{
+    agent any
+    environment{
+        PATH = "/opt/maven3/bin:$PATH"
+    }
+    stages(){
+        stage("Git CheckOut"){
+            steps{
+                git credentialsId: 'javahome2', url: 'https://github.com/Kishore1K/myweb.git'
+            }
+        }
+        stage("Maven Build"){
+            steps{
+                sh "mvn clean sonar:sonar package"
+            }
+        }
+        stage("nexus backup"){
+            steps{
+                nexusArtifactUploader artifacts: [
+                    [
+                        artifactId: 'myweb',
+                        classifier: '',
+                        file: 'target/myweb-8.2.0.war',
+                        type: 'war'
+                        ]
+                    ],
+                    credentialsId: 'nexus',
+                    groupId: 'in.javahome',
+                    nexusUrl: '172.31.20.236:8081',
+                    nexusVersion: 'nexus3',
+                    protocol: 'http',
+                    repository: 'kishore-release',
+                    version: '8.2.0'
+            }
+        }
+        stage("Build Docker Image"){
+            steps{
+                 sh 'docker build -t kishore1k/spring-boot-mongo .'
+                 sh 'docker build -t tomcat:${BUILD_NUMBER} .'
+                 sh 'docker run -itd --name kishore -p 2900:8080 tomcat:${BUILD_NUMBER}'
+            }
+        }
+        stage("Push to Docker"){
+            steps{
+                withCredentials([string(credentialsId: 'DOCKER_HUB_CREDENTIALS', variable: 'DOCKER_HUB_CREDENTIALS')]) {
+                    sh " docker login -u kishore1k -p ${DOCKER_HUB_CREDENTIALS}"
+                }
+                sh "docker push kishore1k/spring-boot-mongo"
+            }
+        }
+    }
+}
