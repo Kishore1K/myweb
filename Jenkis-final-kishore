@@ -1,0 +1,57 @@
+pipeline{
+    agent any;
+    stages(){
+        stage("GIT CHECKOUT"){
+            steps{
+                git credentialsId: 'GIT_CREDENTIALS', url: 'https://github.com/Kishore1K/myweb.git' 
+            }
+        }
+        stage("Maven Build"){
+            steps{
+                sh"mvn clean sonar:sonar package"
+            }
+        }
+        stage("Nexus Upload"){
+            steps{
+                nexusArtifactUploader artifacts: [
+                    [
+                        artifactId: 'myweb',
+                        classifier: '',
+                        file: 'target/myweb-8.2.0.war',
+                        type: 'war'
+                        ]
+                    ],
+                    credentialsId: 'nexus3',
+                    groupId: 'in.javahome',
+                    nexusUrl: '172.31.19.16:8081',
+                    nexusVersion: 'nexus3',
+                    protocol: 'http',
+                    repository: 'sample-release',
+                    version: '8.2.0'
+            }
+        }
+        stage("Docker Build"){
+            steps{
+                sh "docker build -t kishore1k/myweb ."
+            }
+        }
+        stage("Docker Uploaded"){
+            steps{
+                withCredentials([string(credentialsId: 'DOCKER_KEY_CRED', variable: 'DOCKER_KEY_CRED')]) {
+                    sh"docker login -u kishore1k -p ${DOCKER_KEY_CRED}"
+                }
+            }
+            sh" docker push kishore1k/myweb"
+        }
+        stage("Deploy to Kubernetes Cluster"){
+            steps{
+                kubernetesDeploy(
+                configs: 'springBoot.yml', 
+                kubeconfigId: 'KUBERNETES_CLUSTER_CONFIG',
+                enableConfigSubstitution: true
+            )
+                
+            }
+        }
+    }
+}
