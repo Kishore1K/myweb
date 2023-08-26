@@ -32,7 +32,7 @@ pipeline{
         }
         stage("Docker Build"){
             steps{
-                sh "docker build -t kishore1k/myweb ."
+                sh "docker build -t kishore1k/spring-boot-mongo ."
             }
         }
         stage("Docker Uploaded"){
@@ -40,7 +40,7 @@ pipeline{
                 withCredentials([string(credentialsId: 'DOCKER_KEY_CRED', variable: 'DOCKER_KEY_CRED')]) {
                     sh"docker login -u kishore1k -p ${DOCKER_KEY_CRED}"
                 }
-                sh" docker push kishore1k/myweb"
+                sh" docker push kishore1k/spring-boot-mongo"
             }
             
         }
